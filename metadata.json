@@ -1,0 +1,5 @@
+{
+  "name": "LaTeX Compiler",
+  "description": "A mobile-optimized LaTeX compiler web app using latexonline.cc",
+  "requestFramePermissions": []
+}

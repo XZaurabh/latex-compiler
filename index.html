@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LaTeX Compiler</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d0d0f;
+      --bg-panel: #1a1a1e;
+      --bg-hover: #2a2a2e;
+      --accent: #e8ff47;
+      --accent-hover: #cce629;
+      --text-main: #ffffff;
+      --text-muted: #8b8b98;
+      --border: #2d2d35;
+      
+      --log-green: #47ff9a;
+      --log-red: #ff5f5f;
+      --log-gray: #6b6b78;
+
+      --dot-busy: #ffcc00;
+      --dot-ok: #47ff9a;
+      --dot-err: #ff5f5f;
+      --dot-default: #6b6b78;
+
+      --font-ui: 'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    /* Header / Tabs */
+    header {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background-color: var(--bg-panel);
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-ui);
+      font-weight: 600;
+      font-size: 1rem;
+      padding: 1rem 0;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background-color: var(--bg-hover);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* Main Content Area */
+    main {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tab-content {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    /* Editor Tab */
+    #editor-tab {
+      padding: 1rem;
+      padding-bottom: 5rem; /* Space for compile button */
+    }
+
+    textarea {
+      flex: 1;
+      width: 100%;
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      resize: none;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .compile-container {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      right: 1rem;
+    }
+
+    .compile-btn {
+      width: 100%;
+      background-color: var(--accent);
+      color: var(--bg);
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-size: 1.1rem;
+      padding: 1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background-color 0.2s;
+    }
+
+    .compile-btn:hover:not(:disabled) {
+      background-color: var(--accent-hover);
+    }
+
+    .compile-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(13, 13, 15, 0.3);
+      border-top-color: var(--bg);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .compile-btn.loading .spinner {
+      display: block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* PDF Tab */
+    #pdf-tab {
+      background-color: #ffffff; /* PDF background */
+    }
+
+    .pdf-toolbar {
+      display: flex;
+      gap: 1rem;
+      padding: 1rem;
+      background-color: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .download-btn {
+      background-color: var(--accent);
+      color: var(--bg);
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .download-btn:hover:not(:disabled) {
+      background-color: var(--accent-hover);
+    }
+
+    .download-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pdf-placeholder {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: var(--text-muted);
+      background-color: var(--bg);
+      font-size: 1.2rem;
+    }
+
+    #pdf-container {
+      flex: 1;
+      overflow-y: auto;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.5rem;
+      background-color: #2b2b2b; /* aesthetic dark gray for the background of paper */
+    }
+    
+    .pdf-page-canvas {
+      box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.4);
+      background-color: #ffffff;
+      max-width: 100%;
+    }
+
+    /* Log Tab */
+    #log-tab {
+      padding: 1rem;
+      background-color: var(--bg);
+      overflow-y: auto;
+    }
+
+    .log-line {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.4;
+      margin-bottom: 0.25rem;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    .log-green { color: var(--log-green); }
+    .log-red { color: var(--log-red); }
+    .log-gray { color: var(--log-gray); }
+
+    /* Status Bar */
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      background-color: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--dot-default);
+    }
+
+    .status-dot.busy {
+      background-color: var(--dot-busy);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.ok { background-color: var(--dot-ok); }
+    .status-dot.err { background-color: var(--dot-err); }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 204, 0, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(255, 204, 0, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 204, 0, 0); }
+    }
+
+    .status-text {
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+    }
+
+    .status-right {
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <button class="tab-btn active" data-target="editor-tab">Editor</button>
+    <button class="tab-btn" data-target="pdf-tab">PDF</button>
+    <button class="tab-btn" data-target="log-tab">Log</button>
+  </header>
+
+  <main>
+    <!-- Editor Tab -->
+    <div id="editor-tab" class="tab-content active">
+      <textarea id="latex-code" spellcheck="false">\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+
+\title{Sample LaTeX Document}
+\author{AI Studio}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+This is a simple LaTeX document compiled directly in your browser.
+
+\section{Math Equation}
+Here is a famous equation:
+\begin{equation}
+E = mc^2
+\end{equation}
+
+\end{document}</textarea>
+      <div class="compile-container">
+        <button id="compile-btn" class="compile-btn">
+          <span class="spinner"></span>
+          <span class="btn-text">Compile PDF</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- PDF Tab -->
+    <div id="pdf-tab" class="tab-content">
+      <div class="pdf-toolbar">
+        <button id="download-pdf-btn" class="download-btn" disabled>Download PDF</button>
+        <button id="download-docx-btn" class="download-btn" disabled>Download DOCX</button>
+      </div>
+      <div id="pdf-placeholder" class="pdf-placeholder">No PDF yet</div>
+      <div id="pdf-container"></div>
+    </div>
+
+    <!-- Log Tab -->
+    <div id="log-tab" class="tab-content">
+      <div class="log-line log-gray">// Ready to compile</div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="status-left">
+      <div id="status-dot" class="status-dot"></div>
+      <div id="status-text" class="status-text">Ready</div>
+    </div>
+    <div class="status-right">latexonline.cc</div>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
