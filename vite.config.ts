@@ -17,10 +17,10 @@ export default defineConfig(({mode}) => {
     },
     server: {
       proxy: {
-        '/api/compile': {
-          target: 'https://latexonline.cc/compile',
+        '/api': {
+          target: 'https://latexonline.cc',
           changeOrigin: true,
-          rewrite: (path) => path.replace('/api/compile', '')
+          rewrite: (path) => path.replace('/api', '')
         }
       },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
