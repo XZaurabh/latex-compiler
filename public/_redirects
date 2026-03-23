@@ -1,0 +1,2 @@
+/api/compile/* https://latexonline.cc/compile/:splat 200
+/api/compile https://latexonline.cc/compile 200
